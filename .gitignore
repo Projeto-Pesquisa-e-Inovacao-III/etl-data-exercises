@@ -1,0 +1,36 @@
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Cache e arquivos gerados pelo Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Variáveis de ambiente e credenciais locais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Configurações locais de editores e sistema operacional
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs e arquivos temporários
+*.log
+*.tmp
+*.swp
