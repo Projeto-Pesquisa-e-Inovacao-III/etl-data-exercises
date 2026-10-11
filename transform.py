@@ -61,7 +61,7 @@ def prepare_data(df: pd.DataFrame) -> PreparedData:
 
     exercises = pd.DataFrame({
         "name": prepared_df["name"],
-        "gifUrl": prepared_df["gifUrl"],
+        "gif_url": prepared_df["gif_url"],
         "instructions_sumarization": prepared_df["instructions_sumarization"],
         "body_part_name": prepared_df["bodyPart"],
         "equipment_name": prepared_df["equipment"],
@@ -74,7 +74,7 @@ def prepare_data(df: pd.DataFrame) -> PreparedData:
             if pd.notna(muscle) and str(muscle).strip():
                 relations.append({
                     "exercise_name": row["name"],
-                    "exercise_gif_url": row["gifUrl"],
+                    "exercise_gif_url": row["gif_url"],
                     "secondary_muscle_name": str(muscle).strip(),
                 })
 

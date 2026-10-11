@@ -92,18 +92,18 @@ def insert_data_to_mysql(
                 )
 
             existing_exercises = pd.read_sql_query(
-                text("SELECT id, name, gifUrl FROM exercise"),
+                text("SELECT id, name, gif_url FROM exercise"),
                 connection,
             )
             existing_keys = set(zip(
                 existing_exercises["name"],
-                existing_exercises["gifUrl"],
+                existing_exercises["gif_url"],
             ))
             new_exercises = exercises.loc[
-                ~exercises.set_index(["name", "gifUrl"]).index.isin(existing_keys),
+                ~exercises.set_index(["name", "gif_url"]).index.isin(existing_keys),
                 [
                     "name",
-                    "gifUrl",
+                    "gif_url",
                     "instructions_sumarization",
                     "fk_body_part",
                     "fk_equipment",
@@ -114,21 +114,21 @@ def insert_data_to_mysql(
                 connection.execute(
                     text("""
                         INSERT INTO exercise
-                            (name, gifUrl, instructions_sumarization,
+                            (name, gif_url, instructions_sumarization,
                              fk_body_part, fk_equipment)
                         VALUES
-                            (:name, :gifUrl, :instructions_sumarization,
+                            (:name, :gif_url, :instructions_sumarization,
                              :fk_body_part, :fk_equipment)
                     """),
                     new_exercises.to_dict("records"),
                 )
 
             all_exercises = pd.read_sql_query(
-                text("SELECT id, name, gifUrl FROM exercise"),
+                text("SELECT id, name, gif_url FROM exercise"),
                 connection,
             )
             exercise_map = dict(zip(
-                zip(all_exercises["name"], all_exercises["gifUrl"]),
+                zip(all_exercises["name"], all_exercises["gif_url"]),
                 all_exercises["id"],
             ))
             summary.append(("exercise", len(new_exercises), len(exercises)))
@@ -208,7 +208,7 @@ def insert_data_to_mysql(
 
 def query_by_body_part(engine: Engine, body_part: str) -> pd.DataFrame:
     query = """
-    SELECT e.id, e.name, e.gifUrl, e.instructions_sumarization,
+    SELECT e.id, e.name, e.gif_url, e.instructions_sumarization,
            bp.name AS body_part, eq.name AS equipment
     FROM exercise AS e
     JOIN body_part AS bp ON bp.id = e.fk_body_part
@@ -233,7 +233,7 @@ def query_by_secondary_muscles(
         for index, muscle in enumerate(secondary_muscles)
     }
     query = f"""
-    SELECT e.id, e.name, e.gifUrl, bp.name AS body_part,
+    SELECT e.id, e.name, e.gif_url, bp.name AS body_part,
            eq.name AS equipment, COUNT(DISTINCT sm.name) AS matched_muscles
     FROM exercise AS e
     JOIN exercise_secondary_muscle AS esm ON esm.exercise_id = e.id
@@ -241,7 +241,7 @@ def query_by_secondary_muscles(
     LEFT JOIN body_part AS bp ON bp.id = e.fk_body_part
     LEFT JOIN equipment AS eq ON eq.id = e.fk_equipment
     WHERE sm.name IN ({placeholders})
-    GROUP BY e.id, e.name, e.gifUrl, bp.name, eq.name
+    GROUP BY e.id, e.name, e.gif_url, bp.name, eq.name
     HAVING COUNT(DISTINCT sm.name) = {len(secondary_muscles)}
     ORDER BY e.name;
     """
@@ -260,7 +260,7 @@ def query_by_equipment(
         for index, equipment in enumerate(selected_equipment)
     }
     query = f"""
-    SELECT e.id, e.name, e.gifUrl, bp.name AS body_part,
+    SELECT e.id, e.name, e.gif_url, bp.name AS body_part,
            eq.name AS equipment
     FROM exercise AS e
     JOIN equipment AS eq ON eq.id = e.fk_equipment
@@ -273,7 +273,7 @@ def query_by_equipment(
 
 def query_bodyweight(engine: Engine) -> pd.DataFrame:
     return run_sql(engine, """
-    SELECT e.id, e.name, e.gifUrl, bp.name AS body_part,
+    SELECT e.id, e.name, e.gif_url, bp.name AS body_part,
            eq.name AS equipment
     FROM exercise AS e
     JOIN equipment AS eq ON eq.id = e.fk_equipment

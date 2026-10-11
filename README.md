@@ -112,7 +112,7 @@ Também é possível informar outro CSV:
 python main.py "caminho\para\outra-base.csv"
 ```
 
-O critério de reutilização é o mesmo do notebook: dimensões são localizadas por `name`, exercícios por `(name, gifUrl)` e relações por `(exercise_id, secondary_muscle_id)`. Portanto, executar a mesma base novamente não insere exercícios ou relações duplicados.
+O critério de reutilização é o mesmo do notebook: dimensões são localizadas por `name`, exercícios por `(name, gif_url)` e relações por `(exercise_id, secondary_muscle_id)`. Portanto, executar a mesma base novamente não insere exercícios ou relações duplicados.
 
 ## Configuração do MySQL
 
@@ -138,7 +138,7 @@ O ETL não gera IDs localmente e não cria um novo registro quando o nome já ex
 - se o exercício já existir, o ETL reutiliza o `id` existente;
 - se a relação entre exercício e músculo secundário já existir, ela não é inserida novamente.
 
-Essa verificação é feita pelo campo `name` nas tabelas de referência, pelo par `(name, gifUrl)` na tabela de exercícios e pelo par `(exercise_id, secondary_muscle_id)` na tabela associativa. Exercícios podem ter o mesmo nome quando possuem URLs de GIF diferentes. A tabela associativa deve manter sua chave primária composta. Os valores textuais devem ser normalizados de forma consistente, pois `chest`, `Chest` e `chest ` são valores diferentes para uma comparação literal.
+Essa verificação é feita pelo campo `name` nas tabelas de referência, pelo par `(name, gif_url)` na tabela de exercícios e pelo par `(exercise_id, secondary_muscle_id)` na tabela associativa. Exercícios podem ter o mesmo nome quando possuem URLs de GIF diferentes. A tabela associativa deve manter sua chave primária composta. Os valores textuais devem ser normalizados de forma consistente, pois `chest`, `Chest` e `chest ` são valores diferentes para uma comparação literal.
 
 ```text
 body_part, equipment e secondary_muscle
@@ -177,7 +177,7 @@ erDiagram
 	EXERCISE {
 		INT id PK
 		VARCHAR name
-		VARCHAR gifUrl
+		VARCHAR gif_url
 		TEXT instructions_sumarization
 		INT fk_body_part FK
 		INT fk_equipment FK
