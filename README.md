@@ -18,15 +18,15 @@ O projeto transforma o arquivo CSV de exercícios em dados relacionais prontos p
 
 O fluxo está sendo validado em um notebook, em [notebooks/tratamento_pandas_data.ipynb](notebooks/tratamento_pandas_data.ipynb). O notebook funciona como um protótipo executável para validar as regras de tratamento, o modelo relacional e as consultas.
 
-Em uma próxima etapa, o fluxo será organizado em classes e módulos, separando responsabilidades como:
+O fluxo também está disponível em módulos Python na raiz, mantendo a mesma lógica do notebook:
 
-- leitura e validação dos dados;
-- transformação e padronização;
-- criação das entidades relacionais;
-- conexão e persistência no banco;
-- consultas para consumo da aplicação.
+- [main.py](main.py): orquestra leitura, transformação e carga na ordem correta;
+- [extract.py](extract.py): lê o CSV e retorna o DataFrame bruto;
+- [transform.py](transform.py): consolida instruções e prepara os DataFrames relacionais;
+- [load.py](load.py): insere dimensões, exercícios e relações, registra logs e contém as consultas analíticas;
+- [database.py](database.py): cria o engine SQLAlchemy e centraliza a execução de consultas.
 
-Essa separação permitirá testar cada parte isoladamente e reutilizar o pipeline fora do ambiente do notebook.
+Os módulos não executam o ETL ao serem importados. A execução começa somente pelo `main.py`.
 
 ## Estrutura
 
@@ -34,8 +34,13 @@ Essa separação permitirá testar cada parte isoladamente e reutilizar o pipeli
 .
 ├── data/
 │   └── exercises(1).csv
+├── database.py
+├── extract.py
+├── load.py
+├── main.py
 ├── notebooks/
 │   └── tratamento_pandas_data.ipynb
+├── transform.py
 ├── requirements.txt
 └── README.md
 ```
@@ -87,18 +92,53 @@ As dependências estão em `requirements.txt`:
 
 O notebook atualmente lê o arquivo usando apenas `exercises(1).csv`. Portanto, para executar o protótipo sem alterar o código, o diretório de trabalho da sessão precisa conter esse arquivo. Caso o CSV esteja apenas em `data/`, configure o diretório de trabalho do notebook para `data/` ou disponibilize uma cópia do arquivo no diretório usado pela sessão.
 
+## Como executar os módulos Python
+
+Configure a conexão sem gravar credenciais nos arquivos:
+
+```powershell
+$env:MYSQL_URL = "mysql+pymysql://usuario:senha@localhost:3306/spring_api_system"
+```
+
+Depois, a partir da raiz do projeto, execute:
+
+```powershell
+python main.py
+```
+
+Também é possível informar outro CSV:
+
+```powershell
+python main.py "caminho\para\outra-base.csv"
+```
+
+O critério de reutilização é o mesmo do notebook: dimensões são localizadas por `name`, exercícios por `(name, gifUrl)` e relações por `(exercise_id, secondary_muscle_id)`. Portanto, executar a mesma base novamente não insere exercícios ou relações duplicados.
+
 ## Configuração do MySQL
 
 Para executar a parte de banco:
 
 1. Inicie o MySQL Server.
 2. Crie o banco de dados que será usado pelo projeto.
-3. Execute a célula de DDL do notebook para criar as tabelas.
+3. Crie as tabelas pelo backend Java, incluindo `AUTO_INCREMENT` para os IDs e `UNIQUE` para os nomes das tabelas de referência. O nome de `exercise` não é único.
 4. Configure usuário, senha, host, porta e nome do banco na conexão.
 5. Execute a função de inserção depois que as tabelas forem criadas.
 6. Execute as consultas analíticas após a carga dos dados.
 
-O fluxo de inserção segue esta ordem:
+A carga é executada em uma transação e pode ser repetida sem reinserir registros que já existam. O notebook grava `etl_summary.log` com a quantidade de linhas novas por tabela e `etl_errors.log` com os detalhes de falhas. Em caso de erro, a transação é revertida.
+
+O fluxo de inserção segue esta ordem. Os IDs das tabelas são gerados pelo banco; o notebook consulta esses IDs depois da carga das tabelas de referência para preencher as FKs dos exercícios e da tabela associativa.
+
+### Reutilização de registros e IDs
+
+O ETL não gera IDs localmente e não cria um novo registro quando o nome já existe:
+
+- se uma parte do corpo, equipamento ou músculo secundário já existir, o ETL reutiliza o `id` retornado pelo banco;
+- se o valor ainda não existir, ele é inserido e o novo `id` gerado pelo banco é utilizado;
+- se o exercício já existir, o ETL reutiliza o `id` existente;
+- se a relação entre exercício e músculo secundário já existir, ela não é inserida novamente.
+
+Essa verificação é feita pelo campo `name` nas tabelas de referência, pelo par `(name, gifUrl)` na tabela de exercícios e pelo par `(exercise_id, secondary_muscle_id)` na tabela associativa. Exercícios podem ter o mesmo nome quando possuem URLs de GIF diferentes. A tabela associativa deve manter sua chave primária composta. Os valores textuais devem ser normalizados de forma consistente, pois `chest`, `Chest` e `chest ` são valores diferentes para uma comparação literal.
 
 ```text
 body_part, equipment e secondary_muscle
@@ -169,6 +209,26 @@ jupyter notebook
 ```
 
 Depois, abra o notebook pela interface do Jupyter e selecione o kernel `.venv`.
+
+## Limpeza das tabelas
+
+O notebook [notebooks/clear_db.ipynb](notebooks/clear_db.ipynb) remove todos os dados das tabelas do ETL. A operação é destrutiva: faça um backup antes de executá-la.
+
+Configure a mesma variável usada pelo ETL:
+
+Para remover as tabelas e recriá-las do zero, use também o notebook [notebooks/drop_tables.ipynb](notebooks/drop_tables.ipynb). Ele remove primeiro `exercise_secondary_muscle`, depois as tabelas principais, sem usar `CASCADE`. Depois execute [notebooks/create_tables.ipynb](notebooks/create_tables.ipynb): as tabelas serão recriadas com IDs `AUTO_INCREMENT`.
+
+```powershell
+$env:MYSQL_URL = 'mysql+pymysql://usuario:senha@localhost:3306/spring_api_system'
+```
+
+No notebook, execute as células de configuração e remova o comentário de `clear_database(confirm=True)` somente após confirmar a limpeza. A função usa `DELETE`, respeita a ordem das chaves estrangeiras, registra a quantidade de linhas removidas e executa tudo em uma transação.
+
+## Criação das tabelas
+
+O notebook [notebooks/create_tables.ipynb](notebooks/create_tables.ipynb) cria o schema MySQL esperado pelo ETL. Ele usa `CREATE TABLE IF NOT EXISTS`, não apaga dados existentes e exige `create_tables(confirm=True)` para executar.
+
+As tabelas usam IDs gerados pelo banco (`AUTO_INCREMENT`), nomes únicos nas tabelas de referência e as chaves estrangeiras da tabela `exercise_secondary_muscle`. Execute este notebook antes do ETL, usando a mesma variável `MYSQL_URL`.
 
 ## Próximos passos
 
